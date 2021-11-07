@@ -26,3 +26,4 @@ In the generated bootstrap.js remove two rows (for me at line 270)
 /******/                                } else if(typeof WebAssembly.instantiateStreaming === 'function') {
 /******/                                        promise = WebAssembly.instantiateStreaming(req, importObject);
 
+The static website is generated in the ./dist folder
