@@ -51,7 +51,6 @@ async function connectErgoWallet() {
 }
 
 async function mintTokens(event) {
-
     // prevent submit
     event.preventDefault(event);
     const tokenForm = document.getElementById("token-form");
