@@ -8,7 +8,8 @@
   },
   "scripts": {
     "build": "webpack --config webpack.config.js",
-    "start": "webpack-dev-server"
+    "start": "webpack-dev-server",
+    "buildstatic" : "webpack ./bootstrap.js --output-filename=bootstrap.js --mode=development"
   },
   "devDependencies": {
     "ergo-lib-wasm-browser": "0.14.0-alpha-a3940fc",
