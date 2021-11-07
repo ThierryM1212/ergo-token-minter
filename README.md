@@ -9,11 +9,11 @@ It is based on the Yoroi dApp connector example: https://github.com/Emurgo/yoroi
 
 ## Installation
 
-> git clone
-> cd ergo-token-minter
-> npm install
-> npm run start
-
+> git clone <br/>
+> cd ergo-token-minter <br/>
+> npm install <br/>
+> npm run start <br/>
+<br/>
 http://localhost:8080
 
 ## Build static page
