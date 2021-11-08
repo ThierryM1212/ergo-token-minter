@@ -69,11 +69,12 @@ async function mintTokens(event) {
     const status = document.getElementById("status");
     const tokenAmount = document.getElementById("quantity").value;
     const decimals = document.getElementById("decimals").value;
+    const tokenAmountAdjusted = BigInt(tokenAmount * Math.pow(10, decimals)).toString();
     const name = document.getElementById("name").value;
     const description = document.getElementById("description").value;
     const ergs = parseFloat(document.getElementById("ergs").value);
     const fee = parseFloat(document.getElementById("fee").value);
-    console.log(tokenAmount, decimals, name, description, ergs, fee);
+    console.log(tokenAmountAdjusted, decimals, name, description, ergs, fee);
 
     // prepare the amounts to send
     const amountToSend = BigInt((ergs + fee) * NANOERG_TO_ERG);
@@ -100,7 +101,7 @@ async function mintTokens(event) {
     // Build the minter output box
     const token = new wasm.Token(
         wasm.TokenId.from_box_id(wasm.BoxId.from_str(utxos[utxos.length - 1].boxId)),
-        wasm.TokenAmount.from_i64(wasm.I64.from_str(tokenAmount)));
+        wasm.TokenAmount.from_i64(wasm.I64.from_str(tokenAmountAdjusted)));
     const minterBoxBuilder = new wasm.ErgoBoxCandidateBuilder(
         ergsAmountBoxValue,
         wasm.Contract.pay_to_address(wasm.Address.from_base58(minterAddress)),
