@@ -1,3 +1,4 @@
+'use strict';
 import * as wasm from "ergo-lib-wasm-browser";
 import JSONBigInt from 'json-bigint';
 
@@ -26,23 +27,46 @@ function parseUnsignedTx(str) {
     };
 }
 
+function parseUtxo(str) {
+    let json = JSONBigInt.parse(str);
+    return {
+        boxId: json.boxId,
+        value: json.value.toString(),
+        ergoTree: json.ergoTree,
+        assets: json.assets.map(asset => ({
+            tokenId: asset.tokenId,
+            amount: asset.amount.toString(),
+        })),
+        additionalRegisters: json.additionalRegisters,
+        creationHeight: json.creationHeight,
+        transactionId: json.transactionId,
+        index: json.index
+    }
+}
+
+async function setStatus(msg, type) {
+    const status = document.getElementById("status");
+    status.innerText = msg;
+    status.className = "alert alert-" + type;
+}
+
+async function logErrorStatus(e, msg) {
+    const s = msg + `: ${JSON.stringify(e)}`;
+    console.error(s, e);
+    setStatus(s, "danger");
+}
+
 async function connectErgoWallet() {
     ergo_request_read_access().then(function (access_granted) {
         const connectWalletButton = document.getElementById("connect-wallet");
         if (!access_granted) {
-            const status = document.getElementById("status");
-            status.innerText = "Wallet access denied";
-            status.className = "alert alert-warning";
+            setStatus("Wallet access denied", "warning")
             connectWalletButton.onclick = connectErgoWallet;
         } else {
             console.log("ergo access given");
-            const status = document.getElementById("status");
-            status.innerText = "Wallet connected";
-            status.className = "alert alert-primary";
+            setStatus("Wallet connected", "primary")
 
             ergo.get_balance().then(async function (result) {
-                let tx = {};
-
                 const walletAmount = parseFloat(parseFloat(result) / parseFloat(NANOERG_TO_ERG)).toFixed(3);
                 connectWalletButton.innerText = "Balance: " + walletAmount + " ERG";
             });
@@ -68,7 +92,6 @@ async function mintTokens(event) {
     const minterAddress = await ergo.get_change_address();
 
     //get the inputs
-    const status = document.getElementById("status");
     const tokenAmount = document.getElementById("quantity").value;
     const decimals = document.getElementById("decimals").value;
     const tokenAmountAdjusted = BigInt(tokenAmount * Math.pow(10, decimals)).toString();
@@ -78,29 +101,28 @@ async function mintTokens(event) {
     const fee = parseFloat(document.getElementById("fee").value);
     console.log(tokenAmountAdjusted, decimals, name, description, ergs, fee);
 
-    // prepare the amounts to send
+    // Prepare the amounts to send
     const amountToSend = BigInt(Math.round((ergs + fee) * NANOERG_TO_ERG));
     const amountToSendBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(amountToSend.toString()));
     const ergsStr = (ergs * NANOERG_TO_ERG).toString();
     const ergsAmountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(ergsStr.toString()));
-    
+
     // Get the input boxes from the connected wallet
     const utxos = await getUtxos(amountToSend);
-    let utxosValue = utxos.reduce((acc, utxo) => acc += BigInt(utxo.value), BigInt(0));
-    console.log('utxos', utxosValue, utxos);
-    const changeValue = utxosValue - amountToSend - BigInt(wasm.TxBuilder.SUGGESTED_TX_FEE().as_i64().to_str());
-    console.log(`${changeValue} | cv.ts() = ${changeValue.toString()}`);
     const selector = new wasm.SimpleBoxSelector();
-    const boxSelection = selector.select(
-        wasm.ErgoBoxes.from_boxes_json(utxos),
-        wasm.BoxValue.from_i64(amountToSendBoxValue.as_i64().checked_add(wasm.TxBuilder.SUGGESTED_TX_FEE().as_i64())),
-        new wasm.Tokens());
-    console.log(`boxes selected: ${boxSelection.boxes().len()}`);
+    let boxSelection = {};
+    try {
+        boxSelection = selector.select(
+            wasm.ErgoBoxes.from_boxes_json(utxos),
+            wasm.BoxValue.from_i64(amountToSendBoxValue.as_i64().checked_add(wasm.TxBuilder.SUGGESTED_TX_FEE().as_i64())),
+            new wasm.Tokens());
+    } catch (e) {
+        logErrorStatus(e, "[Wallet] Error");
+        return null;
+    }
 
-    //build the output boxes
+    // Build the output boxes
     const outputCandidates = wasm.ErgoBoxCandidates.empty();
-
-    // Build the minter output box
     const token = new wasm.Token(
         wasm.TokenId.from_box_id(wasm.BoxId.from_str(utxos[utxos.length - 1].boxId)),
         wasm.TokenAmount.from_i64(wasm.I64.from_str(tokenAmountAdjusted)));
@@ -112,13 +134,13 @@ async function mintTokens(event) {
     try {
         outputCandidates.add(minterBoxBuilder.build());
     } catch (e) {
-        console.log(`building error: ${e}`);
-        throw e;
+        logErrorStatus(e, "minterBox building error");
+        return null;
     }
 
     // Build the fee output box
     const feeStr = (fee * NANOERG_TO_ERG).toString();
-    const feeAmountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(feeStr.toString()));
+    const feeAmountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(feeStr));
     const feeBoxBuilder = new wasm.ErgoBoxCandidateBuilder(
         feeAmountBoxValue,
         wasm.Contract.pay_to_address(wasm.Address.from_base58(feeAddress)),
@@ -126,10 +148,9 @@ async function mintTokens(event) {
     try {
         outputCandidates.add(feeBoxBuilder.build());
     } catch (e) {
-        console.log(`building error: ${e}`);
-        throw e;
+        logErrorStatus(e, "feeBox building error");
+        return null;
     }
-    console.log(`utxosval: ${utxosValue.toString()}`);
 
     // Create the transaction 
     const txBuilder = wasm.TxBuilder.new(
@@ -144,7 +165,7 @@ async function mintTokens(event) {
     const tx = parseUnsignedTx(txBuilder.build().to_json());
     console.log(`tx: ${JSONBigInt.stringify(tx)}`);
     console.log(`original id: ${tx.id}`);
-    
+
     const correctTx = parseUnsignedTx(wasm.UnsignedTransaction.from_json(JSONBigInt.stringify(tx)).to_json());
     console.log(`correct tx: ${JSONBigInt.stringify(correctTx)}`);
     console.log(`new id: ${correctTx.id}`);
@@ -161,13 +182,13 @@ async function mintTokens(event) {
     });
 
     // Send transaction for signing
-    status.innerText = "Awaiting transaction signing";
-    status.className = "alert alert-primary";
+    setStatus("Awaiting transaction signing", "primary");
     console.log(`${JSONBigInt.stringify(correctTx)}`);
     processTx(correctTx).then(txId => {
         console.log('[txId]', txId);
         if (txId) {
             displayTxId(txId);
+            tokenForm.reset();
         }
     });
     return false;
@@ -177,56 +198,46 @@ async function getUtxos(amountToSend) {
     const fee = BigInt(wasm.TxBuilder.SUGGESTED_TX_FEE().as_i64().to_str());
     console.log(amountToSend);
     const fullAmountToSend = amountToSend + fee;
-    const utxos = await ergo.get_utxos(fullAmountToSend.toString());
     const filteredUtxos = [];
+    const utxos = await ergo.get_utxos(fullAmountToSend.toString());
     for (const utxo of utxos) {
         try {
             wasm.ErgoBox.from_json(JSONBigInt.stringify(utxo));
             filteredUtxos.push(utxo);
         } catch (e) {
-            console.error('[getUtxos] UTxO failed parsing:', utxo, e);
+            logErrorStatus(e, "[getUtxos] UTxO failed parsing:");
+            return null;
         }
     }
     return filteredUtxos;
 }
 
 async function signTx(txToBeSigned) {
-    console.log("signTx");
-    const status = document.getElementById("status");
     try {
         return await ergo.sign_tx(txToBeSigned);
     } catch (err) {
-        const msg = `[signTx] Error: ${JSON.stringify(err)}`;
-        console.error(msg, err);
-        status.innerText = msg
-        status.className = "alert alert-danger";
+        logErrorStatus(e, "[signTx] Error");
         return null;
     }
 }
 
 async function submitTx(txToBeSubmitted) {
-    const status = document.getElementById("status");
     try {
         return await ergo.submit_tx(txToBeSubmitted);
     } catch (err) {
-        const msg = `[submitTx] Error: ${JSON.stringify(err)}`;
-        console.error(msg, err);
-        status.innerText = msg
-        status.className = "alert alert-danger";
+        logErrorStatus(e, "[submitTx] Error");
         return null;
     }
 }
 
 async function processTx(txToBeProcessed) {
-    const status = document.getElementById("status");
     const msg = s => {
         console.log('[processTx]', s);
-        status.innerText = s;
-        status.className = "alert alert-primary";
+        setStatus(s, "primary");
     };
     const signedTx = await signTx(txToBeProcessed);
     if (!signedTx) {
-        console.log(`No signed tx`);
+        console.error(`No signed transaction found`);
         return null;
     }
     msg("Transaction signed - awaiting submission");
@@ -252,18 +263,15 @@ function displayTxId(txId) {
 }
 
 // INIT page
-const status = document.getElementById("status");
 if (typeof ergo_request_read_access === "undefined") {
-    status.innerText = "Yorio ergo dApp not found, install the extension";
-    status.className = "alert alert-warning";
+    setStatus("Yorio ergo dApp not found, install the extension", "warning");
 } else {
     console.log("Yorio ergo dApp found");
     window.addEventListener("ergo_wallet_disconnected", function (event) {
         const connectWalletButton = document.getElementById("connect-wallet");
         connectWalletButton.value = "Connect wallet";
         connectWalletButton.onclick = connectErgoWallet;
-        status.innerText = "Ergo wallet disconnected";
-        status.className = "alert alert-warning";
+        setStatus("Ergo wallet disconnected", "warning");
     });
     connectErgoWallet();
 }
