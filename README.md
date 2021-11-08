@@ -22,8 +22,9 @@ This allow to deploy a static webpage in apache.
 
 > npm run buildstatic
 
-In the generated bootstrap.js remove two rows (for me at line 270)
-/******/                                } else if(typeof WebAssembly.instantiateStreaming === 'function') {
-/******/                                        promise = WebAssembly.instantiateStreaming(req, importObject);
-
-The static website is generated in the ./dist folder
+<br/>In the generated bootstrap.js remove two rows (for me at line 270):
+```javascript
+    /******/                                } else if(typeof WebAssembly.instantiateStreaming === 'function') {
+    /******/                                        promise = WebAssembly.instantiateStreaming(req, importObject);
+```
+<br/>The static website is generated in the ./dist folder
