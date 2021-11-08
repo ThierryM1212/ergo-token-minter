@@ -3,7 +3,7 @@ import JSONBigInt from 'json-bigint';
 
 const NANOERG_TO_ERG = 1000000000;
 
-function parseJson(str) {
+function parseUnsignedTx(str) {
     let json = JSONBigInt.parse(str);
     return {
         id: json.id,
@@ -32,11 +32,13 @@ async function connectErgoWallet() {
         if (!access_granted) {
             const status = document.getElementById("status");
             status.innerText = "Wallet access denied";
+            status.className = "alert alert-warning";
             connectWalletButton.onclick = connectErgoWallet;
         } else {
             console.log("ergo access given");
             const status = document.getElementById("status");
             status.innerText = "Wallet connected";
+            status.className = "alert alert-primary";
 
             ergo.get_balance().then(async function (result) {
                 let tx = {};
@@ -77,7 +79,7 @@ async function mintTokens(event) {
     console.log(tokenAmountAdjusted, decimals, name, description, ergs, fee);
 
     // prepare the amounts to send
-    const amountToSend = BigInt((ergs + fee) * NANOERG_TO_ERG);
+    const amountToSend = BigInt(Math.round((ergs + fee) * NANOERG_TO_ERG));
     const amountToSendBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(amountToSend.toString()));
     const ergsStr = (ergs * NANOERG_TO_ERG).toString();
     const ergsAmountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(ergsStr.toString()));
@@ -139,11 +141,11 @@ async function mintTokens(event) {
         wasm.BoxValue.SAFE_USER_MIN());
     const dataInputs = new wasm.DataInputs();
     txBuilder.set_data_inputs(dataInputs);
-    const tx = parseJson(txBuilder.build().to_json());
+    const tx = parseUnsignedTx(txBuilder.build().to_json());
     console.log(`tx: ${JSONBigInt.stringify(tx)}`);
     console.log(`original id: ${tx.id}`);
     
-    const correctTx = parseJson(wasm.UnsignedTransaction.from_json(JSONBigInt.stringify(tx)).to_json());
+    const correctTx = parseUnsignedTx(wasm.UnsignedTransaction.from_json(JSONBigInt.stringify(tx)).to_json());
     console.log(`correct tx: ${JSONBigInt.stringify(correctTx)}`);
     console.log(`new id: ${correctTx.id}`);
     // we must use the exact order chosen as after 0.4.3 in sigma-rust
@@ -160,6 +162,7 @@ async function mintTokens(event) {
 
     // Send transaction for signing
     status.innerText = "Awaiting transaction signing";
+    status.className = "alert alert-primary";
     console.log(`${JSONBigInt.stringify(correctTx)}`);
     processTx(correctTx).then(txId => {
         console.log('[txId]', txId);
@@ -196,6 +199,7 @@ async function signTx(txToBeSigned) {
         const msg = `[signTx] Error: ${JSON.stringify(err)}`;
         console.error(msg, err);
         status.innerText = msg
+        status.className = "alert alert-danger";
         return null;
     }
 }
@@ -208,6 +212,7 @@ async function submitTx(txToBeSubmitted) {
         const msg = `[submitTx] Error: ${JSON.stringify(err)}`;
         console.error(msg, err);
         status.innerText = msg
+        status.className = "alert alert-danger";
         return null;
     }
 }
@@ -217,6 +222,7 @@ async function processTx(txToBeProcessed) {
     const msg = s => {
         console.log('[processTx]', s);
         status.innerText = s;
+        status.className = "alert alert-primary";
     };
     const signedTx = await signTx(txToBeProcessed);
     if (!signedTx) {
@@ -242,20 +248,22 @@ function displayTxId(txId) {
     txTracker.target = "_blank"
     status.appendChild(cr);
     status.appendChild(txTracker);
+    status.className = "alert alert-primary";
 }
 
 // INIT page
 const status = document.getElementById("status");
 if (typeof ergo_request_read_access === "undefined") {
     status.innerText = "Yorio ergo dApp not found, install the extension";
+    status.className = "alert alert-warning";
 } else {
     console.log("Yorio ergo dApp found");
     window.addEventListener("ergo_wallet_disconnected", function (event) {
         const connectWalletButton = document.getElementById("connect-wallet");
         connectWalletButton.value = "Connect wallet";
         connectWalletButton.onclick = connectErgoWallet;
-        
-        status.innerText = "";
+        status.innerText = "Ergo wallet disconnected";
+        status.className = "alert alert-warning";
     });
     connectErgoWallet();
 }
