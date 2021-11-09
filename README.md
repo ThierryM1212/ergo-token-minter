@@ -9,7 +9,7 @@ It is based on the Yoroi dApp connector example: https://github.com/Emurgo/yoroi
 
 ## Installation
 
-> git clone <br/>
+> git clone https://github.com/ThierryM1212/ergo-token-minter.git<br/>
 > cd ergo-token-minter <br/>
 > npm install <br/>
 > npm run build <br/>
