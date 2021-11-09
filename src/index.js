@@ -10,25 +10,11 @@ function parseUnsignedTx(str) {
         id: json.id,
         inputs: json.inputs,
         dataInputs: json.dataInputs,
-        outputs: json.outputs.map(output => ({
-            boxId: output.boxId,
-            value: output.value.toString(),
-            ergoTree: output.ergoTree,
-            assets: output.assets.map(asset => ({
-                tokenId: asset.tokenId,
-                amount: asset.amount.toString(),
-            })),
-            additionalRegisters: output.additionalRegisters,
-            creationHeight: output.creationHeight,
-            transactionId: output.transactionId,
-            index: output.index
-        })),
-
+        outputs: json.outputs.map(output => (parseUtxo(output))),
     };
 }
 
-function parseUtxo(str) {
-    let json = JSONBigInt.parse(str);
+function parseUtxo(json) {
     return {
         boxId: json.boxId,
         value: json.value.toString(),
@@ -98,14 +84,16 @@ async function mintTokens(event) {
     const name = document.getElementById("name").value;
     const description = document.getElementById("description").value;
     const ergs = parseFloat(document.getElementById("ergs").value);
+    if (ergs < 0.002) {
+        setStatus("Minimal amount to send with tokens is 0.002, please retry with a higher amount.", "danger");
+        return null;
+    }
     const fee = parseFloat(document.getElementById("fee").value);
     console.log(tokenAmountAdjusted, decimals, name, description, ergs, fee);
 
     // Prepare the amounts to send
     const amountToSend = BigInt(Math.round((ergs + fee) * NANOERG_TO_ERG));
     const amountToSendBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(amountToSend.toString()));
-    const ergsStr = (ergs * NANOERG_TO_ERG).toString();
-    const ergsAmountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(ergsStr.toString()));
 
     // Get the input boxes from the connected wallet
     const utxos = await getUtxos(amountToSend);
@@ -117,12 +105,21 @@ async function mintTokens(event) {
             wasm.BoxValue.from_i64(amountToSendBoxValue.as_i64().checked_add(wasm.TxBuilder.SUGGESTED_TX_FEE().as_i64())),
             new wasm.Tokens());
     } catch (e) {
-        logErrorStatus(e, "[Wallet] Error");
+        let msg = "[Wallet] Error: "
+        if (JSON.stringify(e).includes("BoxValue out of bounds") ){
+            msg = msg + "Increase the Erg amount to process the transaction. "
+        }
+        logErrorStatus(e, msg);
         return null;
     }
+    console.log('utxos: ', utxos);
+    const ergsStr = (ergs * NANOERG_TO_ERG).toString();
+    const ergsAmountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(ergsStr.toString()));
 
     // Build the output boxes
     const outputCandidates = wasm.ErgoBoxCandidates.empty();
+    
+    // prepare the box for the minted tokens
     const token = new wasm.Token(
         wasm.TokenId.from_box_id(wasm.BoxId.from_str(utxos[utxos.length - 1].boxId)),
         wasm.TokenAmount.from_i64(wasm.I64.from_str(tokenAmountAdjusted)));
@@ -137,7 +134,7 @@ async function mintTokens(event) {
         logErrorStatus(e, "minterBox building error");
         return null;
     }
-
+    
     // Build the fee output box
     const feeStr = (fee * NANOERG_TO_ERG).toString();
     const feeAmountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(feeStr));
@@ -151,7 +148,7 @@ async function mintTokens(event) {
         logErrorStatus(e, "feeBox building error");
         return null;
     }
-
+    
     // Create the transaction 
     const txBuilder = wasm.TxBuilder.new(
         boxSelection,
@@ -160,18 +157,14 @@ async function mintTokens(event) {
         wasm.TxBuilder.SUGGESTED_TX_FEE(),
         wasm.Address.from_base58(minterAddress),
         wasm.BoxValue.SAFE_USER_MIN());
+        
     const dataInputs = new wasm.DataInputs();
     txBuilder.set_data_inputs(dataInputs);
     const tx = parseUnsignedTx(txBuilder.build().to_json());
     console.log(`tx: ${JSONBigInt.stringify(tx)}`);
-    console.log(`original id: ${tx.id}`);
 
     const correctTx = parseUnsignedTx(wasm.UnsignedTransaction.from_json(JSONBigInt.stringify(tx)).to_json());
-    console.log(`correct tx: ${JSONBigInt.stringify(correctTx)}`);
-    console.log(`new id: ${correctTx.id}`);
-    // we must use the exact order chosen as after 0.4.3 in sigma-rust
-    // this can change and might not use all the utxos as the coin selection
-    // might choose a more optimal amount
+    // Put back complete selected inputs in the same order
     correctTx.inputs = correctTx.inputs.map(box => {
         console.log(`box: ${JSONBigInt.stringify(box)}`);
         const fullBoxInfo = utxos.find(utxo => utxo.boxId === box.boxId);
@@ -180,6 +173,7 @@ async function mintTokens(event) {
             extension: {}
         };
     });
+    console.log(`correct tx: ${JSONBigInt.stringify(correctTx)}`);
 
     // Send transaction for signing
     setStatus("Awaiting transaction signing", "primary");
@@ -196,7 +190,6 @@ async function mintTokens(event) {
 
 async function getUtxos(amountToSend) {
     const fee = BigInt(wasm.TxBuilder.SUGGESTED_TX_FEE().as_i64().to_str());
-    console.log(amountToSend);
     const fullAmountToSend = amountToSend + fee;
     const filteredUtxos = [];
     const utxos = await ergo.get_utxos(fullAmountToSend.toString());
@@ -215,7 +208,7 @@ async function getUtxos(amountToSend) {
 async function signTx(txToBeSigned) {
     try {
         return await ergo.sign_tx(txToBeSigned);
-    } catch (err) {
+    } catch (e) {
         logErrorStatus(e, "[signTx] Error");
         return null;
     }
@@ -224,7 +217,7 @@ async function signTx(txToBeSigned) {
 async function submitTx(txToBeSubmitted) {
     try {
         return await ergo.submit_tx(txToBeSubmitted);
-    } catch (err) {
+    } catch (e) {
         logErrorStatus(e, "[submitTx] Error");
         return null;
     }
