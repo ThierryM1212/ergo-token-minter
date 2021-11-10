@@ -15,12 +15,15 @@
       <a class="navbar-brand" href="https://ergoplatform.org/en/" target="_blank">
         <img src="../resources/ergo_logo.png" width="40" height="40" class="d-inline-block align-top" alt="" />
       </a>
+      <a class="navbar-brand" href="./burn.html">
+        Burn
+      </a>
       <a class="navbar-brand" href="./about.html">
         About
       </a>
     </div>
     </div>
-    <h2> Ergo Token Minter </h2>
+    <h2>Ergo Token Minter</h2>
     <form class="form-inline">
       <button id="connect-wallet" type="button" class="btn btn-outline-primary ">
         Connect wallet
@@ -88,9 +91,9 @@
         <div class="mb-3 row">
           <label for="fee" class="col-sm-2 col-form-label">Fee</label>
           <div class="col-sm-10">
-            <input class="form-control" readonly id="fee" value="0.001" min="0.001" step=".001">
+            <input class="form-control" id="fee" value="0.001" required min="0.001" step=".001">
           </div>
-          <label class="col-sm col-form-label text-sm-left display-4">Fee of the dApp</label>
+          <label class="col-sm col-form-label text-sm-left display-4">Fee of the dApp min (0.001)</label>
         </div>
 
       </form>
