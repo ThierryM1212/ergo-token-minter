@@ -7,8 +7,23 @@ label {
     font-weight: bold;
 }
 
+.card {
+    background-color: #ebf0f7;
+
+}
+
 .flex-container {
     display: flex;
+    flex: 1 1 0px;
+    flex-direction: column;
+}
+
+.flex-row {
+    align-items: center;
+    justify-content: center;
+    flex-basis: 0%;
+    flex-grow: 1;
+    flex-shrink: 1;
 }
 
 .flex-child {
@@ -25,6 +40,7 @@ label {
 
 .token-amount {
     color: #5ac47e;
+    text-align: end;
 }
 
 .token-id {

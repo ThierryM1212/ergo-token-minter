@@ -29,6 +29,10 @@ function formatTokenAmount(amount, decimals) {
     }
 }
 
+function formatTokenId(tokenId) {
+    return tokenId.substring(0,10)+'...'+tokenId.substring(tokenId.length-10,tokenId.length)
+}
+
 async function connectErgoWallet() {
     ergo_request_read_access().then(function (access_granted) {
         const connectWalletButton = document.getElementById("connect-wallet");
@@ -45,6 +49,8 @@ async function connectErgoWallet() {
             }).then(async function () {
                 var currentLocation = window.location;
                 if (currentLocation.toString().includes("burn.html")) {
+                    const container = document.getElementById("main");
+                    container.removeAttribute("hidden");
                     loadBurnPage();
                     const burnButton = document.getElementById("burn-token");
                     burnButton.onclick = burnTokens;
@@ -60,7 +66,7 @@ async function connectErgoWallet() {
 
 async function loadBurnPage() {
     const utxos = await ergo.get_utxos();
-    const tbody = document.getElementById("tbody");
+    const container = document.getElementById("container");
 
     for (const i in utxos) {
         const jsonUtxo = parseUtxo(utxos[i]);
@@ -68,24 +74,26 @@ async function loadBurnPage() {
             const tokenBox = await decodeToken(jsonUtxo.assets[j].tokenId);
             const rowUUID = uuidv4();
             const html_row =
-                '<td class="align-middle">' +
-                  '<div class="flex-container">' +
+                '<div class="mb-3 p-2 my-auto w-50">' +
+                  '<div class="d-flex flex-row">' +
                     '<div class="flex-child token-name"><h5>' + tokenBox.name + '</h5></div>' +
                     '<div class="flex-child token-amount"><h5>' + formatTokenAmount(jsonUtxo.assets[j].amount, tokenBox.decimals) + '</h5></div>' +
                   '</div>' +
-                  '<p class="h6 text-muted token-id">' + jsonUtxo.assets[j].tokenId + '</p>' +
+                  '<p class="h6 text-muted token-id" title="'+jsonUtxo.assets[j].tokenId+'">' + formatTokenId(jsonUtxo.assets[j].tokenId) + '</p>' +
                   '<span hidden>' + tokenBox.decimals + '</span>' +
-                '</td>' +
-                '<td class="align-middle">' +
+                '</div>' +
+                '<div class="mb-3 p-2 my-auto w-25">' +
                   '<input class="form-control" value="0" required pattern="[0-9\\.]+">' +
-                '</td>' +
-                  '<td class="align-middle">' +
-                  '<button type="button" class="btn btn-light float-right" onClick="setMaxToken(\'' + rowUUID + '\',\'' + formatTokenAmount(jsonUtxo.assets[j].amount, tokenBox.decimals) + '\')">Select all</button>' +
-                '</td>';
-            var e = document.createElement('tr');
+                '</div>' +
+                '<div class="d-flex flex-row w-25">' +
+                  '<button type="button" class="btn btn-light float-right w-50 h50 m-1" onClick="setMaxToken(\'' + rowUUID + '\',\'' + formatTokenAmount(jsonUtxo.assets[j].amount, tokenBox.decimals) + '\')">All</button>' +
+                  '<button type="button" class="btn btn-light float-right w-50 h50 m-1" onClick="resetToken(\'' + rowUUID + '\')">None</button>' +
+                '</div>';
+            var e = document.createElement('div');
             e.setAttribute("id", rowUUID)
+            e.className="card p-1 d-flex flex-row align-middle";
             e.innerHTML = html_row;
-            tbody.appendChild(e);
+            container.appendChild(e);
         };
     }
 }
@@ -122,12 +130,13 @@ async function burnTokens(event) {
     // build the list of tokens to burn
     var tokensToBurn = [];
     var tokenIdToburn = [];
-    $("#container").find("tr").each(function () {
-        const tokenId = $(this).find('p')[0].innerText;
+    $("#container").find(".card").each(function () {
+        const tokenId = $(this).find('p')[0].getAttribute("title");
         const decimals = parseInt($(this).find("span")[0].innerText);
         const amountToburn = parseFloat($(this).find("input")[0].value);
         const initialAmount = parseFloat($(this).find(".token-amount")[0].innerText);
-        const tokAmountToBurn = BigInt(amountToburn * Math.pow(10, decimals)).toString();
+        const tokAmountToBurn = BigInt(Math.round(amountToburn * Math.pow(10, decimals))).toString();
+        
         const initialTokAmount = BigInt(initialAmount * Math.pow(10, decimals)).toString();
         if (tokAmountToBurn > 0) {
             tokensToBurn.push([tokenId, tokAmountToBurn, initialTokAmount]);
@@ -462,6 +471,15 @@ function displayTxId(txId) {
     status.className = "alert alert-primary";
 }
 
+async function decodeToken(tokenId) {
+    let box = await getTokenBox(tokenId)
+    if (!box) return
+    let name = await decodeString(box.additionalRegisters.R4)
+    let description = await decodeString(box.additionalRegisters.R5)
+    let decimals = await decodeString(box.additionalRegisters.R6)
+    return ({ name: name, description: description, decimals: decimals })
+}
+
 // INIT page
 if (typeof ergo_request_read_access === "undefined") {
     setStatus("Yorio ergo dApp not found, install the extension", "warning");
@@ -472,18 +490,12 @@ if (typeof ergo_request_read_access === "undefined") {
         connectWalletButton.value = "Connect wallet";
         connectWalletButton.onclick = connectErgoWallet;
         setStatus("Ergo wallet disconnected", "warning");
+        const container = document.getElementById("main");
+        container.addAttribute("hidden");
     });
     connectErgoWallet();
 }
 
-async function decodeToken(tokenId) {
-    let box = await getTokenBox(tokenId)
-    if (!box) return
-    let name = await decodeString(box.additionalRegisters.R4)
-    let description = await decodeString(box.additionalRegisters.R5)
-    let decimals = await decodeString(box.additionalRegisters.R6)
-    return ({ name: name, description: description, decimals: decimals })
-}
 
 
 
