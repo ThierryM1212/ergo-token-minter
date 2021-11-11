@@ -11,7 +11,7 @@
     <title>Ergo Token Burner</title>
     <script>
         function setMaxToken(rowUUID, amount) {
-            $("#" + rowUUID).find("input")[0].value = parseFloat(amount).toString();
+            $("#" + rowUUID).find("input")[0].value = parseFloat(amount.replaceAll(",", "")).toString();
         }
         function resetToken(rowUUID) {
             $("#" + rowUUID).find("input")[0].value = "0";
@@ -48,34 +48,38 @@
         <form id="token-form" class="needs-validation" action="#" onsubmit="burnTokens();return false">
             <div class="card p-2 my-auto">
                 <div id="container" class="flex-container p-2">
-                    
+
                 </div>
                 <div>
-                    <div class="float-right w-50">
-                        <div class="card p-2 my-auto mx-auto">
-                            <div class="mb-3 row">
-                                <label for="ergs" class="col-sm-2 col-form-label">
+                    <div class="float-right mw-100">
+                        <div class="card p-1 my-auto mx-auto">
+                            <div class="row">
+                                <label for="ergs" class="col-sm col-form-label">
                                     <h5>Ergs</h5>
                                 </label>
-                                <div class="col-sm-10">
+                                <div class="col-sm">
                                     <input class="form-control p-2 " id="ergs" value="0.002" required min="0.002"
                                         step=".001">
                                 </div>
+                            </div>
+                            <div class="row">
                                 <label class="col-sm col-form-label text-sm-left display-4">Amount of ergs to be
                                     sent with the
                                     tokens
                                     min(0.002)</label>
                             </div>
                         </div>
-                        <div class="card p-2 my-auto mx-auto">
-                            <div class="mb-3 row">
-                                <label for="fee" class="col-sm-2 col-form-label">
+                        <div class="card p-1 my-auto mx-auto">
+                            <div class="row">
+                                <label for="fee" class="col-sm col-form-label">
                                     <h5>Fee</h5>
                                 </label>
-                                <div class="col-sm-10">
+                                <div class="col-sm">
                                     <input class="form-control p-2 " id="fee" value="0.001" required min="0.001"
                                         step=".001">
                                 </div>
+                            </div>
+                            <div class="row">
                                 <label class="col-sm col-form-label text-sm-left display-4">Fee of the dApp min
                                     (0.001)</label>
                             </div>

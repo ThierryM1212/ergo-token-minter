@@ -21,11 +21,13 @@ async function logErrorStatus(e, msg) {
 }
 
 function formatTokenAmount(amount, decimals) {
-    const dec = parseInt(decimals);
-    if (dec > 0) {
-        return amount.substring(0, amount.length - dec) + "." + amount.substring(amount.length - dec)
+    if (decimals > 0) {
+        const numberAmount = (Number(amount)/Number(Math.pow(10, parseInt(decimals)))).toFixed(parseInt(decimals));
+        var str = numberAmount.toString().split(".");
+        str[0] = str[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return str.join(".");
     } else {
-        return amount;
+        return amount.replace(/\B(?=(\d{3})+(?!\d))/g, ",");;
     }
 }
 
@@ -134,16 +136,18 @@ async function burnTokens(event) {
         const tokenId = $(this).find('p')[0].getAttribute("title");
         const decimals = parseInt($(this).find("span")[0].innerText);
         const amountToburn = parseFloat($(this).find("input")[0].value);
-        const initialAmount = parseFloat($(this).find(".token-amount")[0].innerText);
-        const tokAmountToBurn = BigInt(Math.round(amountToburn * Math.pow(10, decimals))).toString();
-        
+        const initialAmount = parseFloat($(this).find(".token-amount")[0].innerText.replaceAll(",",""));
+        var tokAmountToBurn = BigInt(Math.round(amountToburn * Math.pow(10, decimals))).toString();
         const initialTokAmount = BigInt(initialAmount * Math.pow(10, decimals)).toString();
-        if (tokAmountToBurn > 0) {
+        if (BigInt(tokAmountToBurn) > BigInt(initialTokAmount)) { // if more than the amount burn all
+            tokAmountToBurn = initialTokAmount;
+        }
+        if (BigInt(tokAmountToBurn) > 0) {
             tokensToBurn.push([tokenId, tokAmountToBurn, initialTokAmount]);
             tokenIdToburn.push(tokenId);
         }
     })
-    console.log('tokensToBurn: ', tokensToBurn);
+    //console.log('tokensToBurn: ', tokensToBurn);
     var tokens = new wasm.Tokens();
     for (var i in tokensToBurn) {
         tokens.add(new wasm.Token(
@@ -152,7 +156,7 @@ async function burnTokens(event) {
         )
         )
     }
-    console.log('tokens: ', tokens);
+    //console.log('tokens: ', tokens);
 
     // Get all the inputs, filter the required one using the selector
     const utxos = await getAllUtxos();
@@ -171,7 +175,7 @@ async function burnTokens(event) {
         logErrorStatus(e, msg);
         return null;
     }
-    console.log('boxSelection: ', boxSelection.boxes().len());
+    //console.log('boxSelection: ', boxSelection.boxes().len());
 
     // Prepare the output boxes
     const outputCandidates = wasm.ErgoBoxCandidates.empty();
@@ -212,19 +216,19 @@ async function burnTokens(event) {
     const dataInputs = new wasm.DataInputs();
     txBuilder.set_data_inputs(dataInputs);
     const tx = parseUnsignedTx(txBuilder.build().to_json());
-    console.log(`tx: ${JSONBigInt.stringify(tx)}`);
+    //console.log(`tx: ${JSONBigInt.stringify(tx)}`);
 
     const correctTx = parseUnsignedTx(wasm.UnsignedTransaction.from_json(JSONBigInt.stringify(tx)).to_json());
     // Put back complete selected inputs in the same order
     correctTx.inputs = correctTx.inputs.map(box => {
-        console.log(`box: ${JSONBigInt.stringify(box)}`);
+        //console.log(`box: ${JSONBigInt.stringify(box)}`);
         const fullBoxInfo = utxos.find(utxo => utxo.boxId === box.boxId);
         return {
             ...fullBoxInfo,
             extension: {}
         };
     });
-    console.log(`temps tx: ${JSONBigInt.stringify(correctTx)}`);
+    //console.log(`temps tx: ${JSONBigInt.stringify(correctTx)}`);
 
     // Burn the tokens
     for (var i in correctTx.outputs) {
@@ -232,7 +236,7 @@ async function burnTokens(event) {
         for (var j in correctTx.outputs[i].assets) { // Token is to be burnt
             if (tokenIdToburn.includes(correctTx.outputs[i].assets[j].tokenId)) {
                 for (var k in tokensToBurn) {
-                    if (tokensToBurn[k][0] == correctTx.outputs[i].assets[j].tokenId && tokensToBurn[k][1] < tokensToBurn[k][2]) {
+                    if (tokensToBurn[k][0] == correctTx.outputs[i].assets[j].tokenId && BigInt(tokensToBurn[k][1]) < BigInt(tokensToBurn[k][2])) {
                         newAssets.push({
                             "amount": (BigInt(tokensToBurn[k][2]) - BigInt(tokensToBurn[k][1])).toString(),
                             "tokenId": tokensToBurn[k][0]
@@ -257,7 +261,6 @@ async function burnTokens(event) {
         }
     });
     return false;
-
 }
 
 async function mintTokens(event) {
