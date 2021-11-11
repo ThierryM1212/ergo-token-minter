@@ -69,18 +69,18 @@ async function loadBurnPage() {
             const rowUUID = uuidv4();
             const html_row =
                 '<td class="align-middle">' +
-                '<div class="flex-container">' +
-                '<div class="flex-child"><h5>' + tokenBox.name + '     </h5></div>' +
-                '<div class="flex-child"><h5><font color="#1C9068">' + formatTokenAmount(jsonUtxo.assets[j].amount, tokenBox.decimals) + '</font></h5></div>' +
-                '</div>' +
-                '<p class="h6 text-muted">' + jsonUtxo.assets[j].tokenId + '</p>' +
-                '<span hidden>' + tokenBox.decimals + '</span>' +
+                  '<div class="flex-container">' +
+                    '<div class="flex-child token-name"><h5>' + tokenBox.name + '</h5></div>' +
+                    '<div class="flex-child token-amount"><h5>' + formatTokenAmount(jsonUtxo.assets[j].amount, tokenBox.decimals) + '</h5></div>' +
+                  '</div>' +
+                  '<p class="h6 text-muted token-id">' + jsonUtxo.assets[j].tokenId + '</p>' +
+                  '<span hidden>' + tokenBox.decimals + '</span>' +
                 '</td>' +
                 '<td class="align-middle">' +
-                '<input class="form-control" value="0" required pattern="[0-9\\.]+">' +
+                  '<input class="form-control" value="0" required pattern="[0-9\\.]+">' +
                 '</td>' +
-                '<td class="align-middle">' +
-                '<button type="button" class="btn btn-light float-right" onClick="setMaxToken(\'' + rowUUID + '\',\'' + formatTokenAmount(jsonUtxo.assets[j].amount, tokenBox.decimals) + '\')">Select all</button>' +
+                  '<td class="align-middle">' +
+                  '<button type="button" class="btn btn-light float-right" onClick="setMaxToken(\'' + rowUUID + '\',\'' + formatTokenAmount(jsonUtxo.assets[j].amount, tokenBox.decimals) + '\')">Select all</button>' +
                 '</td>';
             var e = document.createElement('tr');
             e.setAttribute("id", rowUUID)
@@ -126,7 +126,7 @@ async function burnTokens(event) {
         const tokenId = $(this).find('p')[0].innerText;
         const decimals = parseInt($(this).find("span")[0].innerText);
         const amountToburn = parseFloat($(this).find("input")[0].value);
-        const initialAmount = parseFloat($(this).find("font")[0].innerText);
+        const initialAmount = parseFloat($(this).find(".token-amount")[0].innerText);
         const tokAmountToBurn = BigInt(amountToburn * Math.pow(10, decimals)).toString();
         const initialTokAmount = BigInt(initialAmount * Math.pow(10, decimals)).toString();
         if (tokAmountToBurn > 0) {

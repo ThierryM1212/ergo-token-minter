@@ -29,7 +29,6 @@
                 About
             </a>
         </div>
-        </div>
         <h2>Ergo Token Burner</h2>
         <form class="form-inline">
             <button id="connect-wallet" type="button" class="btn btn-outline-primary ">
@@ -42,32 +41,56 @@
         Wallet not connected
     </div>
 
-    <div id="container" class="container-sm mx-auto w-75">
+    <div  class="container-sm mx-auto w-75">
         <form id="token-form" class="needs-validation" action="#" onsubmit="burnTokens();return false">
-            <table class="table table-bordered table-sm " margin="20px">
-                <tbody id="tbody">
+            <div class="card p-2 my-auto" style="background-color: #ebf0f7;">
+                <table class="table table-bordered table-sm" id="container">
+                    <tbody id="tbody">
 
-                </tbody>
-            </table>
-
-            <div class="mb-3 row">
-                <label for="ergs" class="col-sm-2 col-form-label">Ergs</label>
-                <div class="col-sm-10">
-                    <input class="form-control" id="ergs" value="0.002" required min="0.002" step=".001">
+                    </tbody>
+                </table>
+                <div >
+                    <table class="table table-bordered table-sm w-50 float-right">
+                        <tr>
+                            <td>
+                                <div class="mb-3 row">
+                                    <label for="ergs" class="col-sm-2 col-form-label"><h5>Ergs</h5></label>
+                                    <div class="col-sm-10">
+                                        <input class="form-control p-2" id="ergs" value="0.002" required
+                                            min="0.002" step=".001">
+                                    </div>
+                                    <label class="col-sm col-form-label text-sm-left display-4">Amount of ergs to be
+                                        sent with the
+                                        tokens
+                                        min(0.002)</label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="mb-3 row">
+                                    <label for="fee" class="col-sm-2 col-form-label"><h5>Fee</h5></label>
+                                    <div class="col-sm-10">
+                                        <input class="form-control p-2" id="fee" value="0.001" required min="0.001"
+                                            step=".001">
+                                    </div>
+                                    <label class="col-sm col-form-label text-sm-left display-4">Fee of the dApp min
+                                        (0.001)</label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div><button type="submit" id="burn-token" class="btn btn-primary float-right">Burn
+                                        tokens</button></div>
+                            </td>
+                        </tr>
+                    </table>
                 </div>
-                <label class="col-sm col-form-label text-sm-left display-4">Amount of ergs to be sent with the tokens
-                    min(0.002)</label>
-            </div>
 
-            <div class="mb-3 row">
-                <label for="fee" class="col-sm-2 col-form-label">Fee</label>
-                <div class="col-sm-10">
-                    <input class="form-control" id="fee" value="0.001" required min="0.001" step=".001">
-                </div>
-                <label class="col-sm col-form-label text-sm-left display-4">Fee of the dApp min (0.001)</label>
-            </div>
 
-            <button type="submit" id="burn-token" class="btn btn-primary float-right">Burn tokens</button>
+
+            </div>
         </form>
     </div>
     <br />
