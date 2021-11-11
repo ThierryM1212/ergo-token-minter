@@ -29,23 +29,37 @@
     <div class="container-xxl mx-auto w-50">
         <br />
         <h4>What is Ergo Token Minter ?</h4>
-        <p class="text-justify">This is a dApp allowing you to mint new tokens on the <a
+        <p class="text-justify">This is a dApp allowing you to mint and burn tokens on the <a
                 href="https://ergoplatform.org/en/" target="_blank">Ergo blockchain.</a></p>
-        <p class="text-justify">You can set several properties for your token as the amount of existing tokens or the
-            number of decimals supported.</p>
-        <br />
+
         <h4>How I can use it ?</h4>
         <p class="text-justify">The application is tested with Chrome browser, but may work with other Chrome based
             browsers.</p>
         <p class="text-justify">You need to install the Chrome extension <a
                 href="https://chrome.google.com/webstore/detail/yoroi-nightly/poonlenmfdfbjfeeballhiibknlknepo"
-                target="_blank">Yoroi nightly</a> and configure a ergo wallet with some ERGs.</p>
+                target="_blank">Yoroi nightly</a> and configure an ergo wallet with some ERGs.</p>
         <p class="text-justify">You need to install the Chrome extension <a
                 href="https://chrome.google.com/webstore/detail/yoroi-ergo-dapp-connector/chifollcalpmjdiokipacefnpmbgjnle"
                 target="_blank">Yoroi dApp connector</a>.</p>
         <p class="text-justify">The application will propose you to log in your Yoroi wallet when loading.</p>
         <br />
-        <h4>Where can I review it ?</h4>
+
+        <h5>Mint tokens</h5>
+        <p class="text-justify">You can set several properties for your token as the amount of existing tokens or the
+            number of decimals supported.</p>
+        <h6>How the tokens are minted ?</h6>
+        <p class="text-justify">They follow the <a
+                href="https://github.com/ergoplatform/eips/blob/master/eip-0004.md#ergo-tokens-standard"
+                target="_blank">EIP-0004</a> for ergo Tokens.</p>
+        <h5>Burn tokens</h5>
+        <p class="text-justify">The dApp connects to your wallet and list the available tokens.</p>
+        <p class="text-justify">When burning tokens, you can adjust the amount of tokens to be burnt for each of your
+            token, and burn them all in a single transaction.</p>
+        <p class="text-justify">You can adjust the amount to be burnt depending on the precision supported by the token,
+            a rounding is applied accordingly.</p>
+        <br />
+
+        <h4>Where can I review the appication ?</h4>
         <p class="text-justify">The code of the application is hosted on gihub:<a
                 href="https://github.com/ThierryM1212/ergo-token-minter" target="_blank">&nbsp;Github repository</a></p>
         <br />
@@ -53,16 +67,21 @@
         <p class="text-justify">The application is distributed as a static webpage and is executed in your browser.</p>
         <p class="text-justify">The transaction are sent to your Yoroi dApp connector so you can review and sign them.
         </p>
+        <p class="text-justify">Once validated with Yoroi dApp connector the transaction is sent to the blockchain, it
+            cannot be cancelled or reverted. Review it carefully.
+        </p>
         <br />
         <h4>What if I find a bug ?</h4>
         <p class="text-justify">Please create an issue in the <a
                 href="https://github.com/ThierryM1212/ergo-token-minter/issues" target="_blank">gihub</a> project, or
             better, a pull request.</p>
         <br />
-        <h4>How the tokens are minted ?</h4>
-        <p class="text-justify">They follow the <a
-                href="https://github.com/ergoplatform/eips/blob/master/eip-0004.md#ergo-tokens-standard"
-                target="_blank">EIP-0004</a> for ergo Tokens.</p>
+
+        <h4>What is the fee ?</h4>
+        <p class="text-justify">There is a minimal fee of 0.001 Erg applied for the dApp usage. If you find the
+            application useful feel free to increase the amount to buy me a beer and contribute to the hosting.</p>
+        <br />
+
     </div>
 
 
