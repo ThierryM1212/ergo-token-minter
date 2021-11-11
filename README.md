@@ -1,9 +1,9 @@
-# Ergo Token Minter
+# Ergo Token Minter / Burner
 
 ## Introduction
 
-Small dApp to mint new ergo token using Yoroi dApp connector.
-Written in javascript with bootstrap.
+dApp to mint and burn ergo tokens using Yoroi dApp connector.
+Written in javascript with bootstrap v4.
 
 It is based on the Yoroi dApp connector example: https://github.com/Emurgo/yoroi-frontend/tree/develop/packages/yoroi-ergo-connector/example-ergo
 
@@ -23,9 +23,10 @@ This allows to deploy a static webpage for example in apache.
 
 > npm run buildstatic
 
-<br/>In the generated bootstrap.js remove two rows (for me at line 270):
+<br/>The static website is generated in the ./dist folder
+
+<br/>In the generated bootstrap.js remove two rows to avoid error loading the wasm (for me at line 270):
 ```javascript
     /******/                                } else if(typeof WebAssembly.instantiateStreaming === 'function') {
     /******/                                        promise = WebAssembly.instantiateStreaming(req, importObject);
 ```
-<br/>The static website is generated in the ./dist folder
