@@ -69,10 +69,11 @@ async function connectErgoWallet() {
 async function loadBurnPage() {
     const utxos = await ergo.get_utxos();
     const container = document.getElementById("container");
-
+    var assetsFound = false;
     for (const i in utxos) {
         const jsonUtxo = parseUtxo(utxos[i]);
         for (var j in jsonUtxo.assets) {
+            assetsFound = true;
             const tokenBox = await decodeToken(jsonUtxo.assets[j].tokenId);
             const rowUUID = uuidv4();
             const html_row =
@@ -97,6 +98,9 @@ async function loadBurnPage() {
             e.innerHTML = html_row;
             container.appendChild(e);
         };
+    }
+    if (!assetsFound) {
+        setStatus("No tokens found in the wallet", "warning");
     }
 }
 
