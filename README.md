@@ -5,6 +5,8 @@
 dApp to mint and burn ergo tokens using Yoroi dApp connector.
 Written in javascript with bootstrap v4.
 
+It can be tried at https://tokenminter.ergo.ga/
+
 It is based on the Yoroi dApp connector example: https://github.com/Emurgo/yoroi-frontend/tree/develop/packages/yoroi-ergo-connector/example-ergo
 
 ## Installation
