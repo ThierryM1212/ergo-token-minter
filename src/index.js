@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { parseUnsignedTx, parseUtxo } from "./parseUtils";
 import { getTokenBox } from "./ergo-related/explorer";
 import { decodeString } from "./ergo-related/serializer";
+import Swal from 'sweetalert2'
 
 const NANOERG_TO_ERG = 1000000000;
 
@@ -35,6 +36,14 @@ function formatTokenId(tokenId) {
     return tokenId.substring(0,10)+'...'+tokenId.substring(tokenId.length-10,tokenId.length)
 }
 
+async function setBalance() {
+    const connectWalletButton = document.getElementById("connect-wallet");
+    ergo.get_balance().then(async function (result) {
+        const walletAmount = parseFloat(parseFloat(result) / parseFloat(NANOERG_TO_ERG)).toFixed(3);
+        connectWalletButton.innerText = "Balance: " + walletAmount + " ERG";
+    });
+}
+
 async function connectErgoWallet() {
     ergo_request_read_access().then(function (access_granted) {
         const connectWalletButton = document.getElementById("connect-wallet");
@@ -45,10 +54,7 @@ async function connectErgoWallet() {
             console.log("ergo access given");
             setStatus("Wallet connected", "primary")
 
-            ergo.get_balance().then(async function (result) {
-                const walletAmount = parseFloat(parseFloat(result) / parseFloat(NANOERG_TO_ERG)).toFixed(3);
-                connectWalletButton.innerText = "Balance: " + walletAmount + " ERG";
-            }).then(async function () {
+            setBalance().then(async function () {
                 var currentLocation = window.location;
                 if (currentLocation.toString().includes("burn.html")) {
                     const container = document.getElementById("main");
@@ -113,7 +119,7 @@ async function burnTokens(event) {
     if (!tokenForm.checkValidity()) {
         console.log("validation error");
         return false;
-    }
+    };
     // 
     const creationHeight = 600000;
     const feeAddress = "9hDPCYffeTEAcShngRGNMJsWddCUQLpNzAqwM9hQyx2w6qubmab";
@@ -143,11 +149,12 @@ async function burnTokens(event) {
         const initialAmount = parseFloat($(this).find(".token-amount")[0].innerText.replaceAll(",",""));
         var tokAmountToBurn = BigInt(Math.round(amountToburn * Math.pow(10, decimals))).toString();
         const initialTokAmount = BigInt(initialAmount * Math.pow(10, decimals)).toString();
+        const tokenName = $(this).find('h5')[0].innerText;
         if (BigInt(tokAmountToBurn) > BigInt(initialTokAmount)) { // if more than the amount burn all
             tokAmountToBurn = initialTokAmount;
         }
         if (BigInt(tokAmountToBurn) > 0) {
-            tokensToBurn.push([tokenId, tokAmountToBurn, initialTokAmount]);
+            tokensToBurn.push([tokenId, tokAmountToBurn, initialTokAmount, decimals, tokenName]);
             tokenIdToburn.push(tokenId);
         }
     })
@@ -220,7 +227,7 @@ async function burnTokens(event) {
     const dataInputs = new wasm.DataInputs();
     txBuilder.set_data_inputs(dataInputs);
     const tx = parseUnsignedTx(txBuilder.build().to_json());
-    //console.log(`tx: ${JSONBigInt.stringify(tx)}`);
+    console.log(`tx: ${JSONBigInt.stringify(tx)}`);
 
     const correctTx = parseUnsignedTx(wasm.UnsignedTransaction.from_json(JSONBigInt.stringify(tx)).to_json());
     // Put back complete selected inputs in the same order
@@ -232,7 +239,7 @@ async function burnTokens(event) {
             extension: {}
         };
     });
-    //console.log(`temps tx: ${JSONBigInt.stringify(correctTx)}`);
+    console.log(`correctTx tx: ${JSONBigInt.stringify(correctTx)}`);
 
     // Burn the tokens
     for (var i in correctTx.outputs) {
@@ -256,13 +263,31 @@ async function burnTokens(event) {
 
     // Send transaction for signing
     setStatus("Awaiting transaction signing", "primary");
+    var message = "Please review the transaction that burn tokens in Yoroi wallet before signing it.<br/>";
+    message += "Tokens burnt:";
+    message += "<div class=\"mb3 p-2 my-auto \"\">";
+    for (var i in tokensToBurn) { // tokenId, tokAmountToBurn, initialTokAmount, decimals, tokenName
+        message += "<div class=\"d-flex flex-row\"><div class=\"flex-child token-name float-left\"><h5>" + tokensToBurn[i][4] + 
+        "</h5></div><div class=\"flex-child token-amount float-right\"><h5>- " + formatTokenAmount(tokensToBurn[i][1], tokensToBurn[i][3]) + "</h5></div></div>"
+    };
+    message += "<div/>";
+    message +=  "<br/>The transactions on blockchain cannot be reverted nor cancelled once sent."
+    displayAwaitTransactionAlert(message);
     console.log(`${JSONBigInt.stringify(correctTx)}`);
     processTx(correctTx).then(txId => {
+        Swal.close();
         console.log('[txId]', txId);
         if (txId) {
             displayTxId(txId);
+            Swal.fire({
+                title: 'Transaction successfully sent, waiting for it reaches the explorer',
+                icon: 'success',
+                timer: 10000,
+                timerProgressBar: true
+            });
             tokenForm.reset();
-        }
+        };
+        setBalance();
     });
     return false;
 }
@@ -385,15 +410,48 @@ async function mintTokens(event) {
 
     // Send transaction for signing
     setStatus("Awaiting transaction signing", "primary");
+
+    var message = "Please review the transaction that mint tokens in Yoroi wallet before signing it."+"<br/>";
+        message += "Tokens minted:";
+        message += "<div class=\"d-flex flex-row \"><div class=\"flex-child token-name \"><h5>" + name + 
+            "</h5></div><div class=\"flex-child token-amount \"><h5>" + formatTokenAmount(tokenAmountAdjusted, decimals) + "</h5></div></div>";
+        message += "<div class=\"d-flex flex-row\"><div class=\"flex-child token-name \"><h5>ERGs sent:" +
+        "</h5></div><div class=\"flex-child token-amount \"><h5>" + ergs.toFixed(4) + "</h5></div></div>";
+        message += "<div class=\"d-flex flex-row\"><div class=\"flex-child token-name \"><h5>dApp fee:" +
+        "</h5></div><div class=\"flex-child token-amount \"><h5>" + fee.toFixed(4) + "</h5></div></div>";
+        message +=  "<br/>The transactions on blockchain cannot be reverted nor cancelled once sent."
+
+    displayAwaitTransactionAlert(message);
     console.log(`${JSONBigInt.stringify(correctTx)}`);
     processTx(correctTx).then(txId => {
+        Swal.close();
         console.log('[txId]', txId);
         if (txId) {
             displayTxId(txId);
+            Swal.fire({
+                title: 'Transaction successfully sent, waiting for it reaches the explorer',
+                icon: 'success',
+                timer: 10000,
+                timerProgressBar: true
+            });
             tokenForm.reset();
         }
+        setBalance();
     });
     return false;
+}
+
+function displayAwaitTransactionAlert (message) {
+    Swal.fire({
+        title: 'Awaiting transaction signing',
+        html: message,
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        imageUrl: '../resources/Spin-1.5s-94px.svg',
+        onBeforeOpen: () => {
+            Swal.showLoading() 
+        },
+    });
 }
 
 async function getAllUtxos() {

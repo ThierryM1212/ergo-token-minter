@@ -20,7 +20,7 @@ label {
 
 .flex-row {
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     flex-basis: 0%;
     flex-grow: 1;
     flex-shrink: 1;
@@ -36,6 +36,7 @@ label {
 
 .token-name {
     text-size-adjust: 50%;
+    text-align: start;
 }
 
 .token-amount {
