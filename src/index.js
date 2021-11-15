@@ -1,13 +1,17 @@
 'use strict';
 import * as wasm from "ergo-lib-wasm-browser";
 import JSONBigInt from 'json-bigint';
+import Swal from 'sweetalert2'
 import { v4 as uuidv4 } from 'uuid';
 import { parseUnsignedTx, parseUtxo } from "./parseUtils";
-import { getTokenBox } from "./ergo-related/explorer";
-import { decodeString } from "./ergo-related/serializer";
-import Swal from 'sweetalert2'
+import { formatTokenAmount, formatTokenId, decodeToken } from "./utils";
+import { currentHeight } from "./ergo-related/explorer"
 
 const NANOERG_TO_ERG = 1000000000;
+const FEE_ADDRESS = "9hDPCYffeTEAcShngRGNMJsWddCUQLpNzAqwM9hQyx2w6qubmab";
+const MIN_ERG_AMOUNT = 0.002;
+const DAPP_FEE = 0.001;
+
 
 async function setStatus(msg, type) {
     const status = document.getElementById("status");
@@ -21,27 +25,23 @@ async function logErrorStatus(e, msg) {
     setStatus(s, "danger");
 }
 
-function formatTokenAmount(amount, decimals) {
-    if (decimals > 0) {
-        const numberAmount = (Number(amount)/Number(Math.pow(10, parseInt(decimals)))).toFixed(parseInt(decimals));
-        var str = numberAmount.toString().split(".");
-        str[0] = str[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        return str.join(".");
-    } else {
-        return amount.replace(/\B(?=(\d{3})+(?!\d))/g, ",");;
-    }
-}
-
-function formatTokenId(tokenId) {
-    return tokenId.substring(0,10)+'...'+tokenId.substring(tokenId.length-10,tokenId.length)
-}
-
 async function setBalance() {
     const connectWalletButton = document.getElementById("connect-wallet");
     ergo.get_balance().then(async function (result) {
         const walletAmount = parseFloat(parseFloat(result) / parseFloat(NANOERG_TO_ERG)).toFixed(3);
         connectWalletButton.innerText = "Balance: " + walletAmount + " ERG";
     });
+}
+
+// run the form validation
+function checkFormValidity() {
+    const tokenForm = document.getElementById("token-form");
+    tokenForm.reportValidity();
+    if (!tokenForm.checkValidity()) {
+        console.log("validation error");
+        return false;
+    };
+    return true;
 }
 
 async function connectErgoWallet() {
@@ -110,119 +110,28 @@ async function loadBurnPage() {
     }
 }
 
-async function burnTokens(event) {
-    // prevent submit
-    event.preventDefault(event);
-    const tokenForm = document.getElementById("token-form");
-    // run the form validation
-    tokenForm.reportValidity();
-    if (!tokenForm.checkValidity()) {
-        console.log("validation error");
-        return false;
-    };
-    // 
-    const creationHeight = 600000;
-    const feeAddress = "9hDPCYffeTEAcShngRGNMJsWddCUQLpNzAqwM9hQyx2w6qubmab";
-    const burnerAddress = await ergo.get_change_address();
-    const ergs = parseFloat(document.getElementById("ergs").value);
-    if (ergs < 0.002) {
-        setStatus("Minimal amount to send with tokens is 0.002, please retry with a higher amount.", "danger");
-        return null;
-    }
-    var fee = parseFloat(document.getElementById("fee").value);
-    if (ergs < 0.001) {
-        fee = 0.001;
-    }
-    // prepare the amounts to send
-    const amountToSend = BigInt((ergs + fee) * NANOERG_TO_ERG);
-    const amountToSendBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(amountToSend.toString()));
-    const ergsStr = (ergs * NANOERG_TO_ERG).toString();
-    const ergsAmountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(ergsStr.toString()));
-
-    // build the list of tokens to burn
-    var tokensToBurn = [];
-    var tokenIdToburn = [];
-    $("#container").find(".card").each(function () {
-        const tokenId = $(this).find('p')[0].getAttribute("title");
-        const decimals = parseInt($(this).find("span")[0].innerText);
-        const amountToburn = parseFloat($(this).find("input")[0].value);
-        const initialAmount = parseFloat($(this).find(".token-amount")[0].innerText.replaceAll(",",""));
-        var tokAmountToBurn = BigInt(Math.round(amountToburn * Math.pow(10, decimals))).toString();
-        const initialTokAmount = BigInt(initialAmount * Math.pow(10, decimals)).toString();
-        const tokenName = $(this).find('h5')[0].innerText;
-        if (BigInt(tokAmountToBurn) > BigInt(initialTokAmount)) { // if more than the amount burn all
-            tokAmountToBurn = initialTokAmount;
-        }
-        if (BigInt(tokAmountToBurn) > 0) {
-            tokensToBurn.push([tokenId, tokAmountToBurn, initialTokAmount, decimals, tokenName]);
-            tokenIdToburn.push(tokenId);
-        }
-    })
-    //console.log('tokensToBurn: ', tokensToBurn);
-    var tokens = new wasm.Tokens();
-    for (var i in tokensToBurn) {
-        tokens.add(new wasm.Token(
-            wasm.TokenId.from_str(tokensToBurn[i][0]),
-            wasm.TokenAmount.from_i64(wasm.I64.from_str(tokensToBurn[i][1]))
-        )
-        )
-    }
-    //console.log('tokens: ', tokens);
-
-    // Get all the inputs, filter the required one using the selector
-    const utxos = await getAllUtxos();
-    const selector = new wasm.SimpleBoxSelector();
-    let boxSelection = {};
-    try {
-        boxSelection = selector.select(
-            wasm.ErgoBoxes.from_boxes_json(utxos),
-            wasm.BoxValue.from_i64(amountToSendBoxValue.as_i64().checked_add(wasm.TxBuilder.SUGGESTED_TX_FEE().as_i64())),
-            tokens);
-    } catch (e) {
-        let msg = "[Wallet] Error: "
-        if (JSON.stringify(e).includes("BoxValue out of bounds")) {
-            msg = msg + "Increase the Erg amount to process the transaction. "
-        }
-        logErrorStatus(e, msg);
-        return null;
-    }
-    //console.log('boxSelection: ', boxSelection.boxes().len());
-
-    // Prepare the output boxes
-    const outputCandidates = wasm.ErgoBoxCandidates.empty();
-    // Build the burner output box
-    const burnerBoxBuilder = new wasm.ErgoBoxCandidateBuilder(
-        ergsAmountBoxValue,
-        wasm.Contract.pay_to_address(wasm.Address.from_base58(burnerAddress)),
+function addSimpleOutputBox(outputCandidates, amountErgsFloat, payToAddress, creationHeight) {
+    const amountNanoErgStr = Math.round((amountErgsFloat * NANOERG_TO_ERG)).toString();
+    const amountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(amountNanoErgStr));
+    const outputBoxBuilder = new wasm.ErgoBoxCandidateBuilder(
+        amountBoxValue,
+        wasm.Contract.pay_to_address(wasm.Address.from_base58(payToAddress)),
         creationHeight);
     try {
-        outputCandidates.add(burnerBoxBuilder.build());
+        outputCandidates.add(outputBoxBuilder.build());
     } catch (e) {
-        console.log(`building error: ${e}`);
+        console.log(`building output error: ${e}`);
         throw e;
     }
-    // don't add the tokens here, let the transaction builder add all the tokens in the fee
-    // Build the fee output box
-    const feeStr = (fee * NANOERG_TO_ERG).toString();
-    const feeAmountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(feeStr.toString()));
-    const feeBoxBuilder = new wasm.ErgoBoxCandidateBuilder(
-        feeAmountBoxValue,
-        wasm.Contract.pay_to_address(wasm.Address.from_base58(feeAddress)),
-        creationHeight);
-    try {
-        outputCandidates.add(feeBoxBuilder.build());
-    } catch (e) {
-        console.log(`building error: ${e}`);
-        throw e;
-    }
+}
 
-    // Create the transaction 
+function createTransaction(boxSelection, outputCandidates, creationHeight, changeAddress, utxos) {
     const txBuilder = wasm.TxBuilder.new(
         boxSelection,
         outputCandidates,
         creationHeight,
         wasm.TxBuilder.SUGGESTED_TX_FEE(),
-        wasm.Address.from_base58(burnerAddress),
+        wasm.Address.from_base58(changeAddress),
         wasm.BoxValue.SAFE_USER_MIN());
     const dataInputs = new wasm.DataInputs();
     txBuilder.set_data_inputs(dataInputs);
@@ -240,6 +149,96 @@ async function burnTokens(event) {
         };
     });
     console.log(`correctTx tx: ${JSONBigInt.stringify(correctTx)}`);
+    return correctTx;
+}
+
+
+function getBoxSelection(utxos, amountFloat, tokens) {
+    const amountToSend = Math.round((amountFloat * NANOERG_TO_ERG)).toString();
+    const amountToSendBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(amountToSend));
+    const selector = new wasm.SimpleBoxSelector();
+    let boxSelection = {};
+    try {
+        boxSelection = selector.select(
+            wasm.ErgoBoxes.from_boxes_json(utxos),
+            wasm.BoxValue.from_i64(amountToSendBoxValue.as_i64().checked_add(wasm.TxBuilder.SUGGESTED_TX_FEE().as_i64())),
+            tokens);
+    } catch (e) {
+        let msg = "[Wallet] Error: "
+        if (JSON.stringify(e).includes("BoxValue out of bounds")) {
+            msg = msg + "Increase the Erg amount to process the transaction. "
+        }
+        logErrorStatus(e, msg);
+        return null;
+    }
+    return boxSelection;
+}
+
+
+
+async function burnTokens(event) {
+    // prevent submit
+    event.preventDefault(event);
+    if (!checkFormValidity()) {return false;};
+
+    const creationHeight = await currentHeight();
+    const burnerAddress = await ergo.get_change_address();
+    const ergs = parseFloat(document.getElementById("ergs").value);
+    if (ergs < MIN_ERG_AMOUNT) {
+        setStatus("Minimal amount to send with tokens is 0.002, please retry with a higher amount.", "danger");
+        return null;
+    };
+    var fee = parseFloat(document.getElementById("fee").value);
+    if (fee < DAPP_FEE) {
+        fee = DAPP_FEE;
+    };
+
+    // build the list of tokens to burn
+    var tokensToBurn = [];
+    var tokenIdToburn = [];
+    $("#container").find(".card").each(function () {
+        const tokenId = $(this).find('p')[0].getAttribute("title");
+        const decimals = parseInt($(this).find("span")[0].innerText);
+        const amountToburn = parseFloat($(this).find("input")[0].value);
+        const initialAmount = parseFloat($(this).find(".token-amount")[0].innerText.replaceAll(",",""));
+        var tokAmountToBurn = BigInt(Math.round(amountToburn * Math.pow(10, decimals))).toString();
+        const initialTokAmount = BigInt(initialAmount * Math.pow(10, decimals)).toString();
+        const tokenName = $(this).find('h5')[0].innerText;
+        if (BigInt(tokAmountToBurn) > BigInt(initialTokAmount)) { // if more than the amount burn all
+            tokAmountToBurn = initialTokAmount;
+        };
+        if (BigInt(tokAmountToBurn) > 0) {
+            tokensToBurn.push([tokenId, tokAmountToBurn, initialTokAmount, decimals, tokenName]);
+            tokenIdToburn.push(tokenId);
+        };
+    });
+    if (tokenIdToburn.length == 0) {
+        setStatus("No token selected token to be burnt, please select at least one", "warning");
+        return null;
+    };
+    var tokens = new wasm.Tokens();
+    for (var i in tokensToBurn) {
+        tokens.add(new wasm.Token(
+            wasm.TokenId.from_str(tokensToBurn[i][0]),
+            wasm.TokenAmount.from_i64(wasm.I64.from_str(tokensToBurn[i][1]))
+        ));
+    };
+
+    // Get all the inputs, filter the required one using the selector
+    const utxos = await getAllUtxos();
+    const boxSelection = getBoxSelection(utxos, (ergs + fee), tokens);
+    if (boxSelection == null) { return null;};
+
+    // Prepare the output boxes
+    const outputCandidates = wasm.ErgoBoxCandidates.empty();
+    // Add the burner output box
+    // don't add the tokens here, let the transaction builder add all the tokens in the change box
+    addSimpleOutputBox(outputCandidates, ergs, burnerAddress, creationHeight);
+    // Add the fee output box
+    addSimpleOutputBox(outputCandidates, fee, FEE_ADDRESS, creationHeight);
+
+    // Create the transaction
+    const correctTx = createTransaction(boxSelection, outputCandidates, creationHeight, burnerAddress, utxos);
 
     // Burn the tokens
     for (var i in correctTx.outputs) {
@@ -295,24 +294,12 @@ async function burnTokens(event) {
 async function mintTokens(event) {
     // prevent submit
     event.preventDefault(event);
-    const tokenForm = document.getElementById("token-form");
-    // run the form validation
-    tokenForm.reportValidity();
-    if (!tokenForm.checkValidity()) {
-        console.log("validation error");
-        return false;
-    }
+    if (!checkFormValidity()) {return false;};
     // set constants
-    const creationHeight = 600000;
-    const feeAddress = "9hDPCYffeTEAcShngRGNMJsWddCUQLpNzAqwM9hQyx2w6qubmab";
+    const creationHeight = await currentHeight();
     const minterAddress = await ergo.get_change_address();
 
     //get the inputs
-    const tokenAmount = document.getElementById("quantity").value;
-    const decimals = document.getElementById("decimals").value;
-    const tokenAmountAdjusted = BigInt(tokenAmount * Math.pow(10, decimals)).toString();
-    const name = document.getElementById("name").value;
-    const description = document.getElementById("description").value;
     const ergs = parseFloat(document.getElementById("ergs").value);
     if (ergs < 0.002) {
         setStatus("Minimal amount to send with tokens is 0.002, please retry with a higher amount.", "danger");
@@ -322,37 +309,27 @@ async function mintTokens(event) {
     if (ergs < 0.001) {
         fee = 0.001;
     }
-    console.log(tokenAmountAdjusted, decimals, name, description, ergs, fee);
-
-    // Prepare the amounts to send
-    const amountToSend = BigInt(Math.round((ergs + fee) * NANOERG_TO_ERG));
-    const amountToSendBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(amountToSend.toString()));
+    const tokenAmount = document.getElementById("quantity").value;
+    const decimals = document.getElementById("decimals").value;
+    const tokenAmountAdjusted = BigInt(tokenAmount * Math.pow(10, decimals)).toString();
+    const name = document.getElementById("name").value;
+    const description = document.getElementById("description").value;
+    // console.log(tokenAmountAdjusted, decimals, name, description, ergs, fee);
 
     // Get the input boxes from the connected wallet
-    const utxos = await getUtxosForAmount(amountToSend);
-    const selector = new wasm.SimpleBoxSelector();
-    let boxSelection = {};
-    try {
-        boxSelection = selector.select(
-            wasm.ErgoBoxes.from_boxes_json(utxos),
-            wasm.BoxValue.from_i64(amountToSendBoxValue.as_i64().checked_add(wasm.TxBuilder.SUGGESTED_TX_FEE().as_i64())),
-            new wasm.Tokens());
-    } catch (e) {
-        let msg = "[Wallet] Error: "
-        if (JSON.stringify(e).includes("BoxValue out of bounds")) {
-            msg = msg + "Increase the Erg amount to process the transaction. "
-        }
-        logErrorStatus(e, msg);
-        return null;
-    }
-    console.log('utxos: ', utxos);
-    const ergsStr = (ergs * NANOERG_TO_ERG).toString();
-    const ergsAmountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(ergsStr.toString()));
+    const utxos = await getUtxosForAmount(ergs + fee);
+    const tokens = new wasm.Tokens();
+    const boxSelection = getBoxSelection(utxos, (ergs + fee), tokens);
+    if (boxSelection == null) { return null;};
 
     // Build the output boxes
     const outputCandidates = wasm.ErgoBoxCandidates.empty();
 
     // prepare the box for the minted tokens
+    const ergsStr = (ergs * NANOERG_TO_ERG).toString();
+    const ergsAmountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(ergsStr.toString()));
+
+    // Create the new token using the last boxid
     const token = new wasm.Token(
         wasm.TokenId.from_box_id(wasm.BoxId.from_str(utxos[utxos.length - 1].boxId)),
         wasm.TokenAmount.from_i64(wasm.I64.from_str(tokenAmountAdjusted)));
@@ -368,46 +345,10 @@ async function mintTokens(event) {
         return null;
     }
 
-    // Build the fee output box
-    const feeStr = (fee * NANOERG_TO_ERG).toString();
-    const feeAmountBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(feeStr));
-    const feeBoxBuilder = new wasm.ErgoBoxCandidateBuilder(
-        feeAmountBoxValue,
-        wasm.Contract.pay_to_address(wasm.Address.from_base58(feeAddress)),
-        creationHeight);
-    try {
-        outputCandidates.add(feeBoxBuilder.build());
-    } catch (e) {
-        logErrorStatus(e, "feeBox building error");
-        return null;
-    }
-
+    // Add the fee output box
+    addSimpleOutputBox(outputCandidates, fee, FEE_ADDRESS, creationHeight);
     // Create the transaction 
-    const txBuilder = wasm.TxBuilder.new(
-        boxSelection,
-        outputCandidates,
-        creationHeight,
-        wasm.TxBuilder.SUGGESTED_TX_FEE(),
-        wasm.Address.from_base58(minterAddress),
-        wasm.BoxValue.SAFE_USER_MIN());
-
-    const dataInputs = new wasm.DataInputs();
-    txBuilder.set_data_inputs(dataInputs);
-    const tx = parseUnsignedTx(txBuilder.build().to_json());
-    console.log(`tx: ${JSONBigInt.stringify(tx)}`);
-
-    const correctTx = parseUnsignedTx(wasm.UnsignedTransaction.from_json(JSONBigInt.stringify(tx)).to_json());
-    // Put back complete selected inputs in the same order
-    correctTx.inputs = correctTx.inputs.map(box => {
-        console.log(`box: ${JSONBigInt.stringify(box)}`);
-        const fullBoxInfo = utxos.find(utxo => utxo.boxId === box.boxId);
-        return {
-            ...fullBoxInfo,
-            extension: {}
-        };
-    });
-    console.log(`correct tx: ${JSONBigInt.stringify(correctTx)}`);
-
+    const correctTx = createTransaction(boxSelection, outputCandidates, creationHeight, minterAddress, utxos);
     // Send transaction for signing
     setStatus("Awaiting transaction signing", "primary");
 
@@ -469,9 +410,10 @@ async function getAllUtxos() {
     return filteredUtxos;
 }
 
-async function getUtxosForAmount(amountToSend) {
+async function getUtxosForAmount(amountFloat) {
+    const amountNano = BigInt(Math.round(amountFloat * NANOERG_TO_ERG));
     const fee = BigInt(wasm.TxBuilder.SUGGESTED_TX_FEE().as_i64().to_str());
-    const fullAmountToSend = amountToSend + fee;
+    const fullAmountToSend = amountNano + fee;
     const filteredUtxos = [];
     const utxos = await ergo.get_utxos(fullAmountToSend.toString());
     for (const utxo of utxos) {
@@ -536,15 +478,6 @@ function displayTxId(txId) {
     status.className = "alert alert-primary";
 }
 
-async function decodeToken(tokenId) {
-    let box = await getTokenBox(tokenId)
-    if (!box) return
-    let name = await decodeString(box.additionalRegisters.R4)
-    let description = await decodeString(box.additionalRegisters.R5)
-    let decimals = await decodeString(box.additionalRegisters.R6)
-    return ({ name: name, description: description, decimals: decimals })
-}
-
 // INIT page
 if (typeof ergo_request_read_access === "undefined") {
     setStatus("Yorio ergo dApp not found, install the extension", "warning");
@@ -560,7 +493,3 @@ if (typeof ergo_request_read_access === "undefined") {
     });
     connectErgoWallet();
 }
-
-
-
-

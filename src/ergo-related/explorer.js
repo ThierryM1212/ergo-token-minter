@@ -66,4 +66,3 @@ export function getBalanceFor(addr, token = null) {
         });
 }
 
-
