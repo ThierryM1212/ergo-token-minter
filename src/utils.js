@@ -2,7 +2,7 @@
 import { decodeString } from './ergo-related/serializer';
 import { getTokenBox } from './ergo-related/explorer';
 
-// return formatted token amount 6,222,444.420
+// return formatted token amount like 6,222,444.420
 // amountInt: number of token as provided in utxo (to be divided by 10^decimals)
 // decimalsInt: number of decimals of te token
 export function formatTokenAmount(amountInt, decimalsInt) {

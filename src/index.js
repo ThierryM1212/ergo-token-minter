@@ -11,9 +11,11 @@ const NANOERG_TO_ERG = 1000000000;
 const FEE_ADDRESS = "9hDPCYffeTEAcShngRGNMJsWddCUQLpNzAqwM9hQyx2w6qubmab";
 const MIN_ERG_AMOUNT = 0.002;
 const DAPP_FEE = 0.001;
+const SIGUSD_TOKENID = "03faf2cb329f2e90d6d23b58d91bbb6c046aa143261cc21f52fbe2824bfcbf04";
+const SIGRSV_TOKENID = "003bd19d0187117f130b62e1bcab0939929ff5c7709f843c5c4dd158949285d0";
+const GENUINE_TOKENID_LIST = [SIGUSD_TOKENID, SIGRSV_TOKENID];
 
-
-async function setStatus(msg, type) {
+function setStatus(msg, type) {
     const status = document.getElementById("status");
     status.innerText = msg;
     status.className = "alert alert-" + type;
@@ -48,18 +50,18 @@ async function connectErgoWallet() {
     ergo_request_read_access().then(function (access_granted) {
         const connectWalletButton = document.getElementById("connect-wallet");
         if (!access_granted) {
-            setStatus("Wallet access denied", "warning")
+            setStatus("Wallet access denied", "warning");
             connectWalletButton.onclick = connectErgoWallet;
         } else {
             console.log("ergo access given");
-            setStatus("Wallet connected", "primary")
+            setStatus("Wallet connected", "primary");
 
             setBalance().then(async function () {
                 var currentLocation = window.location;
                 if (currentLocation.toString().includes("burn.html")) {
                     const container = document.getElementById("main");
                     container.removeAttribute("hidden");
-                    loadBurnPage();
+                    await loadBurnPage();
                     const burnButton = document.getElementById("burn-token");
                     burnButton.onclick = burnTokens;
                 } else {
@@ -82,22 +84,34 @@ async function loadBurnPage() {
             assetsFound = true;
             const tokenBox = await decodeToken(jsonUtxo.assets[j].tokenId);
             const rowUUID = uuidv4();
-            const html_row =
-                '<div class="mb-3 p-2 my-auto w-50">' +
-                  '<div class="d-flex flex-row">' +
-                    '<div class="flex-child token-name"><h5>' + tokenBox.name + '</h5></div>' +
-                    '<div class="flex-child token-amount"><h5>' + formatTokenAmount(jsonUtxo.assets[j].amount, tokenBox.decimals) + '</h5></div>' +
-                  '</div>' +
-                  '<p class="h6 text-muted token-id" title="'+jsonUtxo.assets[j].tokenId+'">' + formatTokenId(jsonUtxo.assets[j].tokenId) + '</p>' +
-                  '<span hidden>' + tokenBox.decimals + '</span>' +
-                '</div>' +
-                '<div class="mb-3 p-2 my-auto w-25">' +
-                  '<input class="form-control" value="0" required pattern="[0-9\\.]+">' +
-                '</div>' +
-                '<div class="d-flex flex-row w-25">' +
-                  '<button type="button" class="btn btn-light float-right w-50 h50 m-1" onClick="setMaxToken(\'' + rowUUID + '\',\'' + formatTokenAmount(jsonUtxo.assets[j].amount, tokenBox.decimals) + '\')">All</button>' +
-                  '<button type="button" class="btn btn-light float-right w-50 h50 m-1" onClick="resetToken(\'' + rowUUID + '\')">None</button>' +
-                '</div>';
+            var html_row = '<div class="mb-3 p-2 my-auto w-50">';
+            html_row += '<div class="d-flex flex-row">';
+            if (GENUINE_TOKENID_LIST.includes(jsonUtxo.assets[j].tokenId)) { // prevent to burn genuine tokens
+                html_row += '<div class="flex-child token-name"><h5><img src="../resources/verified_black_24dp.svg" title="Verified"/>' + tokenBox.name + '</h5></div>';
+            } else {
+                html_row += '<div class="flex-child token-name"><h5>' + tokenBox.name + '</h5></div>';
+            };
+            html_row += '<div class="flex-child token-amount"><h5>' + formatTokenAmount(jsonUtxo.assets[j].amount, tokenBox.decimals) + '</h5></div>';
+            html_row += '</div>';
+            html_row += '<p class="h6 text-muted token-id" title="'+jsonUtxo.assets[j].tokenId+'">' + formatTokenId(jsonUtxo.assets[j].tokenId) + '</p>';
+            html_row += '<span hidden>' + tokenBox.decimals + '</span>';
+            html_row += '</div>';
+            html_row += '<div class="mb-3 p-2 my-auto w-25">';
+            if (GENUINE_TOKENID_LIST.includes(jsonUtxo.assets[j].tokenId)) { // prevent to burn genuine tokens
+                html_row += '<input class="form-control" value="0" required readonly pattern="[0-9\\.]+"/>';
+            } else {
+                html_row += '<input class="form-control" value="0" required pattern="[0-9\\.]+"/>';
+            };
+            html_row += '</div>';
+            html_row += '<div class="d-flex flex-row w-25">';
+            if (GENUINE_TOKENID_LIST.includes(jsonUtxo.assets[j].tokenId)) { // prevent to burn genuine tokens
+                html_row += '<button type="button" class="btn btn-light float-right w-50 h50 m-1" disabled">All</button>';
+                html_row += '<button type="button" class="btn btn-light float-right w-50 h50 m-1" disabled">None</button>';
+            } else {
+                html_row += '<button type="button" class="btn btn-light float-right w-50 h50 m-1" onClick="setMaxToken(\'' + rowUUID + '\',\'' + formatTokenAmount(jsonUtxo.assets[j].amount, tokenBox.decimals) + '\')">All</button>';
+                html_row += '<button type="button" class="btn btn-light float-right w-50 h50 m-1" onClick="resetToken(\'' + rowUUID + '\')">None</button>';
+            };
+            html_row += '</div>';
             var e = document.createElement('div');
             e.setAttribute("id", rowUUID)
             e.className="card p-1 d-flex flex-row align-middle";
@@ -152,7 +166,6 @@ function createTransaction(boxSelection, outputCandidates, creationHeight, chang
     return correctTx;
 }
 
-
 function getBoxSelection(utxos, amountFloat, tokens) {
     const amountToSend = Math.round((amountFloat * NANOERG_TO_ERG)).toString();
     const amountToSendBoxValue = wasm.BoxValue.from_i64(wasm.I64.from_str(amountToSend));
@@ -173,8 +186,6 @@ function getBoxSelection(utxos, amountFloat, tokens) {
     }
     return boxSelection;
 }
-
-
 
 async function burnTokens(event) {
     // prevent submit
@@ -271,9 +282,10 @@ async function burnTokens(event) {
     };
     message += "<div/>";
     message +=  "<br/>The transactions on blockchain cannot be reverted nor cancelled once sent."
-    displayAwaitTransactionAlert(message);
+    displayAwaitTransactionAlert("Awaiting transaction signing", message);
     console.log(`${JSONBigInt.stringify(correctTx)}`);
-    processTx(correctTx).then(txId => {
+    processTx(correctTx).
+    then(txId => {
         Swal.close();
         console.log('[txId]', txId);
         if (txId) {
@@ -286,7 +298,6 @@ async function burnTokens(event) {
             });
             tokenForm.reset();
         };
-        setBalance();
     });
     return false;
 }
@@ -362,7 +373,7 @@ async function mintTokens(event) {
         "</h5></div><div class=\"flex-child token-amount \"><h5>" + fee.toFixed(4) + "</h5></div></div>";
         message +=  "<br/>The transactions on blockchain cannot be reverted nor cancelled once sent."
 
-    displayAwaitTransactionAlert(message);
+    displayAwaitTransactionAlert('Awaiting transaction signing', message);
     console.log(`${JSONBigInt.stringify(correctTx)}`);
     processTx(correctTx).then(txId => {
         Swal.close();
@@ -375,6 +386,7 @@ async function mintTokens(event) {
                 timer: 10000,
                 timerProgressBar: true
             });
+            const tokenForm = document.getElementById("token-form");
             tokenForm.reset();
         }
         setBalance();
@@ -382,9 +394,9 @@ async function mintTokens(event) {
     return false;
 }
 
-function displayAwaitTransactionAlert (message) {
-    Swal.fire({
-        title: 'Awaiting transaction signing',
+function displayAwaitTransactionAlert (title, message) {
+Swal.fire({
+        title: title,
         html: message,
         allowOutsideClick: false,
         showConfirmButton: false,
@@ -479,6 +491,7 @@ function displayTxId(txId) {
 }
 
 // INIT page
+
 if (typeof ergo_request_read_access === "undefined") {
     setStatus("Yorio ergo dApp not found, install the extension", "warning");
 } else {
