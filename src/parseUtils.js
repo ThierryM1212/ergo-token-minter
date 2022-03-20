@@ -11,17 +11,21 @@ export function parseUnsignedTx(str) {
     };
 }
 export function parseUtxo(json) {
+    var newJson = { ...json };
+    if (newJson.assets === null) {
+        newJson.assets = [];
+    }
     return {
-        boxId: json.boxId,
-        value: json.value.toString(),
-        ergoTree: json.ergoTree,
-        assets: json.assets.map(asset => ({
+        boxId: newJson.boxId,
+        value: newJson.value.toString(),
+        ergoTree: newJson.ergoTree,
+        assets: newJson.assets.map(asset => ({
             tokenId: asset.tokenId,
             amount: asset.amount.toString(),
         })),
-        additionalRegisters: json.additionalRegisters,
-        creationHeight: json.creationHeight,
-        transactionId: json.transactionId,
-        index: json.index
+        additionalRegisters: newJson.additionalRegisters,
+        creationHeight: newJson.creationHeight,
+        transactionId: newJson.transactionId,
+        index: newJson.index
     };
 }

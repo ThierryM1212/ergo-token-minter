@@ -498,9 +498,9 @@ function displayTxId(txId) {
 
 if (typeof ergo_request_read_access === "undefined") {
     console.log("ergo.request_read_access");
-    setStatus("Yorio ergo dApp not found, install the extension", "warning");
+    setStatus("dApp connector not found, install the extension", "warning");
 } else {
-    console.log("Yorio ergo dApp found");
+    console.log("ergo dApp connector found");
     window.addEventListener("ergo_wallet_disconnected", function (event) {
         const connectWalletButton = document.getElementById("connect-wallet");
         connectWalletButton.value = "Connect wallet";
