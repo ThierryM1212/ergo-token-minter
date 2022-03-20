@@ -7,6 +7,8 @@ import { parseUnsignedTx, parseUtxo } from "./parseUtils";
 import { formatTokenAmount, formatTokenId, decodeToken } from "./utils";
 import { currentHeight } from "./ergo-related/explorer"
 
+/* global ergo */
+
 const NANOERG_TO_ERG = 1000000000;
 const FEE_ADDRESS = "9hDPCYffeTEAcShngRGNMJsWddCUQLpNzAqwM9hQyx2w6qubmab";
 const MIN_ERG_AMOUNT = 0.002;
@@ -76,18 +78,20 @@ async function connectErgoWallet() {
 
 async function loadBurnPage() {
     const utxos = await ergo.get_utxos();
+    console.log("utxos",utxos);
     const container = document.getElementById("container");
     var assetsFound = false;
     for (const i in utxos) {
         const jsonUtxo = parseUtxo(utxos[i]);
         for (var j in jsonUtxo.assets) {
             assetsFound = true;
+            console.log("tokenId",jsonUtxo.assets[j].tokenId)
             const tokenBox = await decodeToken(jsonUtxo.assets[j].tokenId);
             const rowUUID = uuidv4();
             var html_row = '<div class="mb-3 p-2 my-auto w-50">';
             html_row += '<div class="d-flex flex-row">';
             if (GENUINE_TOKENID_LIST.includes(jsonUtxo.assets[j].tokenId)) { // prevent to burn genuine tokens
-                html_row += '<div class="flex-child token-name"><h5><img src="../resources/verified_black_24dp.svg" title="Verified"/>' + tokenBox.name + '</h5></div>';
+                html_row += '<div class="flex-child token-name"><h5><img src="resources/verified_black_24dp.svg" title="Verified"/>' + tokenBox.name + '</h5></div>';
             } else {
                 html_row += '<div class="flex-child token-name"><h5>' + tokenBox.name + '</h5></div>';
             };
@@ -400,7 +404,7 @@ Swal.fire({
         html: message,
         allowOutsideClick: false,
         showConfirmButton: false,
-        imageUrl: '../resources/Spin-1.5s-94px.svg',
+        imageUrl: 'resources/Spin-1.5s-94px.svg',
         onBeforeOpen: () => {
             Swal.showLoading() 
         },
@@ -493,6 +497,7 @@ function displayTxId(txId) {
 // INIT page
 
 if (typeof ergo_request_read_access === "undefined") {
+    console.log("ergo.request_read_access");
     setStatus("Yorio ergo dApp not found, install the extension", "warning");
 } else {
     console.log("Yorio ergo dApp found");

@@ -24,9 +24,12 @@ export function formatTokenId(tokenId) {
 // return token details
 export async function decodeToken(tokenId) {
     let box = await getTokenBox(tokenId)
+    console.log("decodeToken",box)
     if (!box) return
-    let name = await decodeString(box.additionalRegisters.R4)
-    let description = await decodeString(box.additionalRegisters.R5)
-    let decimals = await decodeString(box.additionalRegisters.R6)
+    let name = '', description = '', decimals = 0;
+    if (box.additionalRegisters.R4) name = await decodeString(box.additionalRegisters.R4);
+    if (box.additionalRegisters.R5) description = await decodeString(box.additionalRegisters.R5);
+    if (box.additionalRegisters.R6) decimals = await decodeString(box.additionalRegisters.R6);
     return ({ name: name, description: description, decimals: decimals })
 }
+
