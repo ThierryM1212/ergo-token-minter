@@ -277,7 +277,7 @@ async function burnTokens(event) {
 
     // Send transaction for signing
     setStatus("Awaiting transaction signing", "primary");
-    var message = "Please review the transaction that burn tokens in Yoroi wallet before signing it.<br/>";
+    var message = "Please review the transaction that burn tokens in your wallet before signing it.<br/>";
     message += "Tokens burnt:";
     message += "<div class=\"mb3 p-2 my-auto \"\">";
     for (var i in tokensToBurn) { // tokenId, tokAmountToBurn, initialTokAmount, decimals, tokenName
@@ -367,7 +367,7 @@ async function mintTokens(event) {
     // Send transaction for signing
     setStatus("Awaiting transaction signing", "primary");
 
-    var message = "Please review the transaction that mint tokens in Yoroi wallet before signing it."+"<br/>";
+    var message = "Please review the transaction that mint tokens in your wallet before signing it."+"<br/>";
         message += "Tokens minted:";
         message += "<div class=\"d-flex flex-row \"><div class=\"flex-child token-name \"><h5>" + name + 
             "</h5></div><div class=\"flex-child token-amount \"><h5>" + formatTokenAmount(tokenAmountAdjusted, decimals) + "</h5></div></div>";
