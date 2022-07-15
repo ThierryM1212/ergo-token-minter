@@ -217,7 +217,7 @@ async function burnTokens(event) {
         const amountToburn = parseFloat($(this).find("input")[0].value);
         const initialAmount = parseFloat($(this).find(".token-amount")[0].innerText.replaceAll(",",""));
         var tokAmountToBurn = BigInt(Math.round(amountToburn * Math.pow(10, decimals))).toString();
-        const initialTokAmount = BigInt(initialAmount * Math.pow(10, decimals)).toString();
+        const initialTokAmount = BigInt(Math.round(initialAmount * Math.pow(10, decimals))).toString();
         const tokenName = $(this).find('h5')[0].innerText;
         if (BigInt(tokAmountToBurn) > BigInt(initialTokAmount)) { // if more than the amount burn all
             tokAmountToBurn = initialTokAmount;
