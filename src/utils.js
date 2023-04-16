@@ -1,5 +1,5 @@
 'use strict';
-import { decodeString } from './ergo-related/serializer';
+import { decodeNum, decodeString } from './ergo-related/serializer';
 import { getTokenBox } from './ergo-related/explorer';
 
 // return formatted token amount like 6,222,444.420
@@ -28,8 +28,15 @@ export async function decodeToken(tokenId) {
     if (!box) return
     let name = '', description = '', decimals = 0;
     if (box.additionalRegisters.R4) name = await decodeString(box.additionalRegisters.R4);
-    if (box.additionalRegisters.R5) description = await decodeString(box.additionalRegisters.R5);
-    if (box.additionalRegisters.R6) decimals = await decodeString(box.additionalRegisters.R6);
+    if (box.additionalRegisters.R5) description = await decodeString(box.additionalRegisters.R5) ;
+    if (box.additionalRegisters.R6) {
+        try {
+            decimals = await decodeString(box.additionalRegisters.R6);
+        } catch(e){
+            console.log(e)
+        }
+    }
+    
     return ({ name: name, description: description, decimals: decimals })
 }
 

@@ -1,7 +1,7 @@
 import { get } from './rest';
 
 export const trueAddress = '4MQyML64GnzMxZgm'; // dummy address to get unsigned tx from node, we only care about the boxes though in this case
-export const explorerApi = 'https://api.ergoplatform.com/api/v0';
+export const explorerApi = 'https://api-testnet.ergoplatform.com/api/v0';
 
 async function getRequest(url) {
     return get(explorerApi + url).then(res => {

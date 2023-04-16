@@ -10,7 +10,7 @@ import { currentHeight } from "./ergo-related/explorer"
 /* global ergo */
 
 const NANOERG_TO_ERG = 1000000000;
-const FEE_ADDRESS = "9hDPCYffeTEAcShngRGNMJsWddCUQLpNzAqwM9hQyx2w6qubmab";
+const FEE_ADDRESS = "3WvyPzH38cTUtzEvNrbEGQBoxSAHtbBQSHdAmjaRYtARhVogLg5c"; // TESTNET
 const MIN_ERG_AMOUNT = 0.002;
 const DAPP_FEE = 0.001;
 const SIGUSD_TOKENID = "03faf2cb329f2e90d6d23b58d91bbb6c046aa143261cc21f52fbe2824bfcbf04";
@@ -487,7 +487,7 @@ function displayTxId(txId) {
     const cr = document.createElement("br");
     const txTracker = document.createElement("a");
     txTracker.appendChild(document.createTextNode(`View transaction in explorer: ${txId}`));
-    txTracker.href = `https://explorer.ergoplatform.com/en/transactions/${txId}`;
+    txTracker.href = `https://testnet.ergoplatform.com/en/transactions/${txId}`;
     txTracker.target = "_blank"
     status.appendChild(cr);
     status.appendChild(txTracker);
